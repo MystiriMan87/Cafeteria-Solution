@@ -28,6 +28,7 @@
 
     <script>
         let map;
+        let markers = [];
 
         function findRecyclingPlants() {
             let zip = document.getElementById("zipCode").value;
@@ -36,6 +37,10 @@
                 return;
             }
 
+            // Clear previous results and map markers
+            clearPreviousResults();
+
+            // Fetch the location for the entered zip code
             fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&format=json`)
                 .then(response => response.json())
                 .then(data => {
@@ -50,9 +55,21 @@
                 .catch(error => console.error("Error fetching location:", error));
         }
 
-        function searchRecyclingCenters(lat, lon) {
+        function clearPreviousResults() {
+            // Clear the map and previous markers
+            if (map) {
+                map.remove();
+            }
+            markers = [];
+
+            // Clear results on the page
+            document.getElementById("results").innerHTML = '';
+            document.getElementById("map").innerHTML = '';
+        }
+
+        function searchRecyclingCenters(userLat, userLon) {
             // Initialize Leaflet map
-            map = L.map('map').setView([lat, lon], 12);
+            map = L.map('map').setView([userLat, userLon], 12);
 
             // Use OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -60,44 +77,55 @@
             }).addTo(map);
 
             // Add marker for user's location
-            L.marker([lat, lon]).addTo(map)
+            L.marker([userLat, userLon]).addTo(map)
                 .bindPopup("Your Location")
                 .openPopup();
 
-            // Simulate recycling centers for example purposes
-            let recyclingCenters = [
-                { name: "Green Earth Recycling", lat: lat + 0.02, lon: lon + 0.05, address: "123 Eco St, New York" },
-                { name: "EcoCycle Center", lat: lat - 0.03, lon: lon - 0.07, address: "456 Green Rd, Los Angeles" },
-                { name: "Sustainable Waste Solutions", lat: lat + 0.05, lon: lon - 0.04, address: "789 Recycle Ave, Chicago" }
-            ];
+            // Overpass API query for all types of recycling plants in the area
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="recycling_bin"](around:5000,${userLat},${userLon});node["amenity"="waste_disposal"](around:5000,${userLat},${userLon});node["amenity"="recycling"](around:5000,${userLat},${userLon});out;`;
 
-            // Display recycling centers and add markers
-            displayResults(recyclingCenters, lat, lon);
+            fetch(overpassUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.elements.length === 0) {
+                        alert("No recycling plants found nearby.");
+                        return;
+                    }
+
+                    const sortedPlants = sortByDistance(userLat, userLon, data.elements);
+                    displayResults(sortedPlants, userLat, userLon);
+                })
+                .catch(error => console.error("Error fetching recycling centers:", error));
         }
 
-        function displayResults(centers, userLat, userLon) {
+        function sortByDistance(userLat, userLon, centers) {
+            // Calculate the distance for each plant and sort by proximity
+            return centers.map(plant => {
+                let lat = plant.lat;
+                let lon = plant.lon;
+                let distance = calculateDistance(userLat, userLon, lat, lon);
+                let name = plant.tags.name || "Unnamed Recycling Plant"; // Get the name, fallback to default
+                return { name: name, lat: lat, lon: lon, distance: distance };
+            }).sort((a, b) => a.distance - b.distance);  // Sort by distance (nearest first)
+        }
+
+        function displayResults(plants, userLat, userLon) {
             let resultsDiv = document.getElementById("results");
-            resultsDiv.innerHTML = "";
+            resultsDiv.innerHTML = "<h4>Nearby Recycling Plants (Sorted by Distance):</h4>";
 
-            centers.forEach((center, index) => {
-                let lat = center.lat;
-                let lon = center.lon;
-                let name = center.name;
-                let address = center.address;
-
-                // Create a result card for each recycling center
+            plants.forEach((plant, index) => {
+                // Create a result card for each plant with its actual name
                 let resultCard = document.createElement("div");
                 resultCard.className = "result-card";
                 resultCard.innerHTML = `
-                    <h4>${index + 1}. ${name}</h4>
-                    <p><strong>Address:</strong> ${address}</p>
-                    <p><strong>Distance:</strong> ~${calculateDistance(userLat, userLon, lat, lon).toFixed(2)} km</p>
+                    <h4>${index + 1}. ${plant.name}</h4>
+                    <p><strong>Distance:</strong> ~${plant.distance.toFixed(2)} km</p>
                 `;
                 resultsDiv.appendChild(resultCard);
 
-                // Add marker for each recycling center
-                L.marker([lat, lon]).addTo(map)
-                    .bindPopup(`<strong>${name}</strong><br>${address}`)
+                // Add marker for each recycling plant
+                L.marker([plant.lat, plant.lon]).addTo(map)
+                    .bindPopup(`<strong>${plant.name}</strong><br>Distance: ~${plant.distance.toFixed(2)} km`)
                     .openPopup();
             });
         }
