@@ -3,231 +3,1333 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recycling Disposal Locator</title>
+  <title>Food Bank & Recycling Finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <!-- Add Leaflet MarkerCluster for handling large numbers of markers -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <!-- Kaleidoscope effect -->
+  <script defer src="https://cdn.jsdelivr.net/npm/three-js@79.0.0/three.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/gh/the-lazy-god/tlg-kaleidoscope@v2.0.1/tlg-kaleidoscope.min.js"></script>
   <style>
+    :root {
+      --primary: #34d399;
+      --secondary: #0d9488;
+      --accent: #06b6d4;
+      --background: #f5f7fa;
+      --card-bg: #ffffff;
+      --text: #333333;
+      --light-text: #718096;
+      --border: #e2e8f0;
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Poppins', sans-serif;
     }
+
     body {
-      background-color: #f5f7fa;
-      color: #333;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      background-color: var(--background);
+      color: var(--text);
+      line-height: 1.6;
+      position: relative;
     }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      padding: 40px 0;
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .kaleidoscope-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      opacity: 0.65;
+      mix-blend-mode: overlay;
+    }
+
+    .kaleidoscope-image-container {
+      display: none;
+    }
+
+    .header-content {
+      position: relative;
+      z-index: 2;
+    }
+
     .container {
+      width: 90%;
       max-width: 1200px;
       margin: 0 auto;
-      flex-grow: 1;
-    }
-    header {
-      margin-bottom: 30px;
-    }
-    h1 {
-      color: #2d3748;
-      margin-bottom: 8px;
-      font-size: 28px;
-    }
-    .subtitle {
-      color: #718096;
-      font-size: 16px;
-    }
-    .input-group {
-      margin-bottom: 20px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-select {
-      margin-bottom: 10px;
+      padding: 0 20px;
     }
 
-    /* Results Section */
-    #results {
-      margin-top: 20px;
-      overflow-y: auto;
-      max-height: 500px;
-    }
-    .result-card {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-      padding: 20px;
-      margin-top: 10px;
-    }
-    .result-card h4 {
-      margin-bottom: 10px;
-    }
-    .result-card p {
-      margin-bottom: 5px;
+    .header h1 {
+      margin-bottom: 0.5rem;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* Map Section */
-    #map {
+    .header .tagline {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      opacity: 0.9;
+    }
+
+    .data-sources {
+      font-size: 0.85rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .data-sources a {
+      color: white;
+      text-decoration: underline;
+      transition: opacity 0.2s ease;
+    }
+
+    .data-sources a:hover {
+      opacity: 0.8;
+    }
+
+    .divider {
+      opacity: 0.7;
+    }
+
+    .creator-credit {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-top: 0.5rem;
+    }
+
+    .map-container {
       width: 100%;
-      height: 300px;
+      margin-bottom: 1.5rem;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+
+    .search-box {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .search-box:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    .search-box h2 {
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .search-box .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    .search-box label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .search-box input[type="text"] {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .search-box input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+    }
+
+    button {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      opacity: 0.95;
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .results {
+      background: var(--card-bg);
+      padding: 1.8rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .results h2 {
+      margin-bottom: 1.2rem;
+      color: var(--primary);
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .results::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .results::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.03);
       border-radius: 10px;
-      margin-top: 20px;
+    }
+
+    .results::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.15);
+      border-radius: 10px;
+    }
+
+    .results::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.25);
+    }
+
+    .result-item {
+      background: #f8f9fa;
+      padding: 1.2rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      transition: all 0.25s ease;
+      border-left: 4px solid var(--primary);
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .result-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .result-item.recycling {
+      border-left: 4px solid var(--secondary);
+    }
+
+    .result-item.highlighted {
+      background: rgba(0, 184, 148, 0.08);
+      box-shadow: 0 5px 15px rgba(0, 184, 148, 0.2);
+      transform: translateY(-3px);
+      border-left-width: 6px;
+    }
+
+    .result-item.recycling.highlighted {
+      background: rgba(9, 132, 227, 0.08);
+      box-shadow: 0 5px 15px rgba(9, 132, 227, 0.2);
+    }
+
+    .result-item h3 {
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      color: var(--primary);
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .result-item.recycling h3 {
+      color: var(--secondary);
+    }
+
+    .result-item p {
+      margin-bottom: 0.5rem;
+      line-height: 1.5;
+    }
+
+    .result-item button {
+      margin-top: 0.8rem;
+      border: none;
+      padding: 0.7rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      background-color: rgba(0, 184, 148, 0.1);
+      color: var(--primary);
+      box-shadow: none;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .result-item button:hover {
+      background-color: rgba(0, 184, 148, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .result-item.recycling button {
+      background-color: rgba(9, 132, 227, 0.1);
+      color: var(--secondary);
+    }
+
+    .result-item.recycling button:hover {
+      background-color: rgba(9, 132, 227, 0.2);
+    }
+
+    .popup-content {
+      min-width: 200px;
+    }
+
+    .popup-content h3 {
+      color: var(--primary);
+      margin-bottom: 5px;
+      font-size: 1rem;
+    }
+
+    .popup-content p {
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+
+    .popup-content button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-top: 5px;
+      display: block;
+      width: 100%;
+    }
+
+    .popup-content a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    .popup-content a:hover {
+      text-decoration: underline;
+    }
+
+    .error {
+      color: var(--error);
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .items-list {
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .items-list li {
+      margin-bottom: 2px;
+    }
+
+    .location-type {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      background-color: rgba(0, 184, 148, 0.1);
+      color: var(--primary);
+      margin-left: 5px;
+    }
+
+    .location-type.recycling {
+      background-color: rgba(9, 132, 227, 0.1);
+      color: var(--secondary);
+    }
+
+    .pagination-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      background-color: rgba(0, 0, 0, 0.02);
+      border-radius: 8px;
+      margin: 10px 0;
+      padding: 10px 15px;
+    }
+
+    .pagination-controls button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background-color: white;
+      color: var(--text);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .pagination-controls button:hover:not(:disabled) {
+      background-color: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .pagination-controls button:disabled {
+      background-color: rgba(0, 0, 0, 0.05);
+      color: rgba(0, 0, 0, 0.3);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .pagination-controls span {
+      font-weight: 500;
+      color: var(--text);
+      background-color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Improved marker cluster styles */
+    .marker-cluster-small {
+      background-color: rgba(0, 184, 148, 0.3);
+    }
+    .marker-cluster-small div {
+      background-color: rgba(0, 184, 148, 0.5);
+    }
+
+    .marker-cluster-medium {
+      background-color: rgba(0, 184, 148, 0.4);
+    }
+    .marker-cluster-medium div {
+      background-color: rgba(0, 184, 148, 0.6);
+    }
+
+    .marker-cluster-large {
+      background-color: rgba(0, 184, 148, 0.5);
+    }
+    .marker-cluster-large div {
+      background-color: rgba(0, 184, 148, 0.7);
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 30px 0;
+      }
+
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .header .tagline {
+        font-size: 1rem;
+      }
+
+      .data-sources {
+        font-size: 0.75rem;
+      }
+
+      .creator-credit {
+        font-size: 0.75rem;
+      }
+
+      .container {
+        width: 95%;
+        padding: 0 10px;
+      }
+
+      #map {
+        height: 350px;
+      }
+
+      .search-box {
+        padding: 1.5rem;
+      }
+
+      .search-box h2 {
+        font-size: 1.3rem;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px 15px;
+      }
+
+      .results {
+        padding: 1.5rem;
+      }
+
+      .location-item {
+        padding: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .header .tagline {
+        font-size: 0.9rem;
+      }
+
+      .data-sources {
+        font-size: 0.7rem;
+      }
+
+      #map {
+        height: 300px;
+      }
+    }
+
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 1rem;
+      color: #777;
+      font-size: 1.1rem;
+    }
+
+    .input-wrapper input {
+      padding-left: 2.8rem;
+      width: 100%;
+    }
+
+    .search-button {
+      min-width: 140px;
+    }
+
+    .location-item {
+      margin-bottom: 1.5rem;
+      padding: 1.2rem;
+      border-radius: 10px;
+      background: #f8fafc;
+      border-left: 4px solid var(--primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .location-item:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .location-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .location-item h3 {
+      margin-bottom: 0.5rem;
+      color: var(--text);
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .location-item .food-bank-icon {
+      color: #fb923c;
+    }
+
+    .location-item .recycling-icon {
+      color: #22c55e;
+    }
+
+    .location-item p {
+      margin: 0.3rem 0;
+      font-size: 0.95rem;
+      color: var(--light-text);
+    }
+
+    .location-item .location-address {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .location-item .location-distance {
+      font-weight: 600;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .location-item .location-type {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+      text-transform: uppercase;
+    }
+
+    .location-item .type-food-bank {
+      background-color: rgba(251, 146, 60, 0.2);
+      color: #c2410c;
+    }
+
+    .location-item .type-recycling {
+      background-color: rgba(34, 197, 94, 0.2);
+      color: #16a34a;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+      align-items: center;
+    }
+
+    .pagination button {
+      padding: 0.5rem 1rem;
+      background: var(--background);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pagination button:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .pagination .current-page {
+      font-weight: 500;
+      padding: 0 1rem;
+    }
+
+    .loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      color: var(--primary);
+      font-size: 1.5rem;
+    }
+
+    .loader i {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background-color: rgba(231, 76, 60, 0.1);
+      color: #c0392b;
+      padding: 1rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 2rem 0;
+      color: var(--light-text);
+    }
+
+    .no-results i {
+      font-size: 2rem;
+      color: var(--border);
+      margin-bottom: 1rem;
+      display: block;
     }
   </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>Recycling Disposal Locator</h1>
-    <p class="subtitle">Find recycling centers and trash disposal places nearby</p>
-  </header>
-  
-  <!-- Material Filter -->
-  <div class="input-group">
-    <input type="text" id="zipCode" class="form-control" placeholder="Enter ZIP code">
-    <button class="btn btn-success" onclick="findDisposalPlaces()">Search</button>
-  </div>
-  <div class="form-group">
-    <label for="materialFilter">Filter by Material Type</label>
-    <select id="materialFilter" class="form-select">
-      <option value="">Show All Disposal Locations</option>
-      <option value="recycling">Recycling</option>
-      <option value="waste">General Waste Disposal</option>
-    </select>
+<div class="header">
+  <!-- Kaleidoscope effect -->
+  <div class="kaleidoscope-wrapper" tlg-kaleidoscope-canvas tlg-kaleidoscope-mode="mouse" tlg-kaleidoscope-segments="12" tlg-kaleidoscope-scale="1.5" tlg-kaleidoscope-motion="1.2">
+    <div class="kaleidoscope-image-container">
+      <!-- Source images (hidden) for the kaleidoscope effect -->
+      <img tlg-kaleidoscope-image src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iIzM0ZDM5OSIvPjxjaXJjbGUgY3g9IjI1MCIgY3k9IjI1MCIgcj0iMTUwIiBmaWxsPSIjMDA5OTllIi8+PHJlY3QgeD0iMTAwIiB5PSIxMDAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjNDE5YWZmIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=" alt="Kaleidoscope source 1">
+      <img tlg-kaleidoscope-image src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2Y1ZjdmYSIvPjxjaXJjbGUgY3g9IjI1MCIgY3k9IjI1MCIgcj0iMjAwIiBmaWxsPSIjMDBiODk0IiBvcGFjaXR5PSIwLjciLz48cG9seWdvbiBwb2ludHM9IjI1MCwxMDAgNDAwLDQwMCAxMDAsNDAwIiBmaWxsPSIjMDk4NGUzIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=" alt="Kaleidoscope source 2">
+    </div>
   </div>
 
-  <!-- Results Section -->
-  <div id="results"></div>
-  
-  <!-- Map Section -->
-  <div id="map"></div>
+  <!-- Header content -->
+  <div class="container header-content">
+    <h1><i class="fas fa-hands-helping"></i> Food Bank & Recycling Finder</h1>
+    <p class="tagline">Find food banks and recycling centers near you</p>
+    <div class="data-sources">
+      <span><i class="fas fa-shopping-basket"></i> Food bank data from <a href="https://gist.github.com/4t0m15/ed9c9b8608e1b07f7bdd96b938b7f90b" target="_blank">GitHub Gist</a></span>
+      <span class="divider">|</span>
+      <span>Powered by <a href="https://github.com/whatfoodbanksneed/food_bank_api" target="_blank">This Dead API (which I recycled)</a></span>
+      <span class="divider">|</span>
+      <span><i class="fas fa-recycle"></i> Recycling data from <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a></span>
+      <span class="divider">|</span>
+      <span><i class="fas fa-icons"></i> Icons by <a href="https://fontawesome.com" target="_blank">Font Awesome</a></span>
+    </div>
+    <div class="creator-credit">
+      <i class="fas fa-heart" style="color: #e74c3c;"></i> Created by Arsen Marirosyan and Alim Apekov for the Hackabyte Spring Hackathon
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="search-box">
+    <h2><i class="fas fa-search"></i> Find Food Banks & Recycling Centers</h2>
+    <div class="form-group">
+      <label for="search-input">Enter a location (city, town, postcode)</label>
+      <input type="text" id="search-input" placeholder="e.g. London, Manchester, CF10 1EP" />
+    </div>
+    <button id="search-button"><i class="fas fa-search"></i> Search</button>
+  </div>
+
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="no-results">
+      <i class="fas fa-map-marked-alt"></i>
+      <p>Enter a location above to find food banks and recycling centers near you.</p>
+    </div>
+  </div>
 </div>
 
 <script>
-  let map;
-  let markers = [];
+  var map = L.map('map').setView([51.505, -0.09], 13);
+  var foodBankData = null;
+  var recyclingCentersData = {};  // Initialize as empty object instead of null
+  var foodBankLocationsFound = [];
+  var recyclingCentersFound = [];
+  var markerCluster = L.markerClusterGroup({
+    chunkedLoading: true,
+    zoomToBoundsOnClick: true,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false
+  });
+  var markers = [];
+  var currentSearchType = 'all';
 
-  function findDisposalPlaces() {
-    let zip = document.getElementById("zipCode").value;
-    let material = document.getElementById("materialFilter").value;
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
 
-    if (!zip) {
-      alert("Please enter a ZIP code.");
-      return;
+  // Add the marker cluster to the map
+  map.addLayer(markerCluster);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Attempt to get user's location for better user experience
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        map.setView([lat, lng], 13);
+      }, function() {
+        // Default view if geolocation fails (centered on London, UK)
+        map.setView([51.505, -0.09], 13);
+      });
     }
 
-    // Clear previous results and map markers
-    clearPreviousResults();
+    // Load food bank data
+    loadFoodBankData();
 
-    // Fetch the location for the entered zip code
-    fetch(`https://nominatim.openstreetmap.org/search?postalcode=${zip}&format=json`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.length === 0) {
-          alert("Invalid ZIP code. Try again.");
-          return;
-        }
-        let userLat = parseFloat(data[0].lat);
-        let userLon = parseFloat(data[0].lon);
-        searchDisposalPlaces(userLat, userLon, material);
-      })
-      .catch(error => console.error("Error fetching location:", error));
+    // Set up event listeners
+    document.getElementById('search-button').addEventListener('click', function() {
+      const searchValue = document.getElementById('search-input').value.trim();
+      searchLocation(searchValue);
+    });
+
+    document.getElementById('search-input').addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') {
+        const searchValue = document.getElementById('search-input').value.trim();
+        searchLocation(searchValue);
+      }
+    });
+  });
+
+  // Calculate distance between two points using the Haversine formula
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in km
   }
 
-  function clearPreviousResults() {
-    // Clear the map and previous markers
-    if (map) {
-      map.remove();
+  // Extract recycling materials from tags
+  function getRecyclingMaterials(tags) {
+    const materials = [];
+    for (const key in tags) {
+      if (key.startsWith('recycling:') && tags[key] === 'yes') {
+        materials.push(key.substring(10));
+      }
     }
+    return materials;
+  }
+
+  // Clear all markers from the map
+  function clearMarkers() {
+    markers.forEach(marker => {
+      if (marker instanceof L.MarkerClusterGroup) {
+        marker.clearLayers();
+      } else {
+        map.removeLayer(marker);
+      }
+    });
     markers = [];
-
-    // Clear results on the page
-    document.getElementById("results").innerHTML = '';
-    document.getElementById("map").innerHTML = '';
   }
 
-  function searchDisposalPlaces(userLat, userLon, material) {
-    // Initialize Leaflet map
-    map = L.map('map').setView([userLat, userLon], 12);
+  // Load food bank data from JSON
+  function loadFoodBankData() {
+    const resultsContainer = document.getElementById('results');
+    resultsContainer.innerHTML = `
+                <div class="loader">
+                    <i class="fas fa-spinner"></i>
+                    <span>Loading food bank data...</span>
+                </div>`;
 
-    // Use OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    // Use a verified, working URL
+    const foodBankUrl = 'https://gist.githubusercontent.com/4t0m15/ed9c9b8608e1b07f7bdd96b938b7f90b/raw/food_banks.json';
 
-    // Add marker for user's location
-    L.marker([userLat, userLon]).addTo(map)
-      .bindPopup("Your Location")
-      .openPopup();
-
-    // Overpass API query for all disposal and recycling locations in the area
-    let overpassUrl = '';
-    if (material === "recycling") {
-      overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="recycling"](around:5000,${userLat},${userLon});out;`;
-    } else if (material === "waste") {
-      overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="waste_disposal"](around:5000,${userLat},${userLon});out;`;
-    } else {
-      overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="waste_disposal"](around:5000,${userLat},${userLon});node["amenity"="recycling"](around:5000,${userLat},${userLon});out;`;
-    }
-
-    fetch(overpassUrl)
-      .then(response => response.json())
-      .then(data => {
-        if (data.elements.length === 0) {
-          alert("No disposal places found nearby.");
-          return;
-        }
-
-        const sortedPlaces = sortByDistance(userLat, userLon, data.elements);
-        displayResults(sortedPlaces, userLat, userLon);
-      })
-      .catch(error => console.error("Error fetching disposal places:", error));
+    fetch(foodBankUrl)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('Network response was not ok');
+              }
+              return response.json();
+            })
+            .then(data => {
+              foodBankData = data;
+              console.log('Food bank data loaded successfully:', Object.keys(data).length, 'food banks');
+              resultsContainer.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-map-marked-alt"></i>
+                            <p>Enter a location above to find food banks and recycling centers near you.</p>
+                        </div>`;
+            })
+            .catch(error => {
+              console.error('Error loading food bank data:', error);
+              resultsContainer.innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-map-marked-alt"></i>
+                            <p>Enter a location above to find recycling centers near you.</p>
+                            <div class="error-message" style="margin-top: 20px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Food bank data could not be loaded. <button id="retry-load-btn" style="background: none; color: #c0392b; box-shadow: none; padding: 0; font-weight: bold; text-decoration: underline; margin-left: 5px;">Try again</button></span>
+                            </div>
+                            <p style="margin-top: 15px;"><strong>But don't worry!</strong> You can still search for recycling centers even without food bank data.</p>
+                        </div>`;
+              document.getElementById('retry-load-btn').addEventListener('click', loadFoodBankData);
+            });
   }
 
-  function sortByDistance(userLat, userLon, places) {
-    // Calculate the distance for each place and sort by proximity
-    return places.map(place => {
-      let lat = place.lat;
-      let lon = place.lon;
-      let distance = calculateDistance(userLat, userLon, lat, lon);
-      let name = place.tags.name || "Disposal Bin"; // Renamed to "Disposal Bin"
-      return { name: name, lat: lat, lon: lon, distance: distance };
-    }).sort((a, b) => a.distance - b.distance);  // Sort by distance (nearest first)
-  }
+  // Geocode location using Nominatim
+  function geocodeLocation(location) {
+    return new Promise((resolve, reject) => {
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1`;
 
-  function displayResults(places, userLat, userLon) {
-    let resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = "<h4>Nearby Disposal Places (Sorted by Distance):</h4>";
+      fetch(nominatimUrl)
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error(`Network error: ${response.status}`);
+                }
+                return response.json();
+              })
+              .then(data => {
+                if (!data || !data.length) {
+                  throw new Error("Location not found");
+                }
 
-    places.forEach((place, index) => {
-      // Create a result card for each place with its actual name
-      let resultCard = document.createElement("div");
-      resultCard.className = "result-card";
-      resultCard.innerHTML = `
-        <h4>${index + 1}. ${place.name}</h4>
-        <p><strong>Distance:</strong> ~${place.distance.toFixed(2)} km</p>
-      `;
-      resultsDiv.appendChild(resultCard);
+                const userLocation = {
+                  lat: parseFloat(data[0].lat),
+                  lon: parseFloat(data[0].lon),
+                  displayName: data[0].display_name
+                };
 
-      // Add marker for each place
-      L.marker([place.lat, place.lon]).addTo(map)
-        .bindPopup(`<strong>${place.name}</strong><br>Distance: ~${place.distance.toFixed(2)} km`)
-        .openPopup();
+                // Center map on user location
+                map.setView([userLocation.lat, userLocation.lon], 10);
+
+                // Add user location marker
+                const userMarker = L.marker([userLocation.lat, userLocation.lon])
+                        .addTo(map)
+                        .bindPopup(`<b>Your Location</b><br>${userLocation.displayName || 'Searched location'}`);
+
+                markers.push(userMarker);
+
+                resolve(userLocation);
+              })
+              .catch(error => {
+                console.error("Geocoding failed:", error);
+                reject(error);
+              });
     });
   }
 
-  function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Radius of Earth in km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  // Function for searching locations - works even if food bank data isn't available
+  function searchLocation(location) {
+    if (!location) {
+      document.getElementById("results").innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Please enter a location to search.</span>
+                    </div>
+                    <div class="no-results">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <p>Enter a location above to find food banks and recycling centers near you.</p>
+                    </div>
+                `;
+      return;
+    }
+
+    // Clear previous results
+    const resultsContainer = document.getElementById("results");
+    resultsContainer.innerHTML = `
+                <div class="loader">
+                    <i class="fas fa-spinner"></i>
+                    <span>Searching for locations near ${location}...</span>
+                </div>
+            `;
+
+    // Reset previous findings
+    foodBankLocationsFound = [];
+    recyclingCentersFound = [];
+    clearMarkers();
+
+    // Geocode the location
+    geocodeLocation(location)
+            .then(userLocation => {
+              // Find recycling centers even if food bank data fails to load
+              findRecyclingCentersNear(userLocation);
+
+              // Only search for food banks if the data is available
+              if (foodBankData) {
+                findFoodBanksNear(userLocation);
+              }
+            })
+            .catch(error => {
+              console.error("Geocoding failed:", error);
+              resultsContainer.innerHTML = `
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Could not find location "${location}". Please try a different search term.</span>
+                        </div>
+                        <div class="no-results">
+                            <i class="fas fa-map-marked-alt"></i>
+                            <p>Try searching for a major city or a full postcode.</p>
+                        </div>
+                    `;
+            });
   }
+
+  // Find food banks near a location
+  function findFoodBanksNear(userLocation) {
+    console.log("Searching for food banks near", userLocation);
+
+    // Skip if food bank data is not loaded
+    if (!foodBankData) {
+      console.warn("Food bank data not available");
+      return;
+    }
+
+    const maxDistance = 50; // km
+    foodBankLocationsFound = [];
+
+    // Loop through all food banks to find those within range
+    for (const [id, foodBank] of Object.entries(foodBankData)) {
+      if (foodBank.lat && foodBank.lng) {
+        const distance = calculateDistance(
+                userLocation.lat, userLocation.lon,
+                foodBank.lat, foodBank.lng
+        );
+
+        if (distance <= maxDistance) {
+          foodBankLocationsFound.push({
+            ...foodBank,
+            distance: distance,
+            type: 'food_bank'
+          });
+        }
+      }
+    }
+
+    // Sort by distance
+    foodBankLocationsFound.sort((a, b) => a.distance - b.distance);
+
+    // Add markers to the map
+    addFoodBankMarkers(foodBankLocationsFound);
+
+    console.log(`Found ${foodBankLocationsFound.length} food banks within ${maxDistance}km`);
+    displayCombinedResults();
+  }
+
+  // Find recycling centers near a location using Overpass API
+  function findRecyclingCentersNear(userLocation) {
+    console.log("Searching for recycling centers near", userLocation);
+
+    const radius = 10000; // 10km in meters
+    recyclingCentersFound = [];
+
+    // Build Overpass API query
+    const overpassQuery = `
+                [out:json];
+                (
+                  node["amenity"="recycling"](around:${radius},${userLocation.lat},${userLocation.lon});
+                  way["amenity"="recycling"](around:${radius},${userLocation.lat},${userLocation.lon});
+                  relation["amenity"="recycling"](around:${radius},${userLocation.lat},${userLocation.lon});
+                  node["recycling_type"](around:${radius},${userLocation.lat},${userLocation.lon});
+                  way["recycling_type"](around:${radius},${userLocation.lat},${userLocation.lon});
+                  relation["recycling_type"](around:${radius},${userLocation.lat},${userLocation.lon});
+                );
+                out body;
+                >;
+                out skel qt;
+            `;
+
+    // Call Overpass API
+    fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: overpassQuery
+    })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error("Overpass API request failed");
+              }
+              return response.json();
+            })
+            .then(data => {
+              if (data && data.elements) {
+                // Process results
+                data.elements.forEach(element => {
+                  if (element.type === "node" && element.tags && (element.tags.amenity === "recycling" || element.tags.recycling_type)) {
+                    const name = element.tags.name ||
+                            (element.tags.recycling_type === "centre" ? "Recycling Centre" :
+                                    (element.tags.recycling_type === "container" ? "Recycling Container" :
+                                            "Recycling Point"));
+
+                    const address = element.tags["addr:street"] ?
+                            `${element.tags["addr:housenumber"] || ""} ${element.tags["addr:street"]}, ${element.tags["addr:city"] || ""}` :
+                            (element.tags.address || element.tags.location || "Address not available");
+
+                    const distance = calculateDistance(
+                            userLocation.lat, userLocation.lon,
+                            element.lat, element.lon
+                    );
+
+                    const materials = getRecyclingMaterials(element.tags);
+
+                    recyclingCentersFound.push({
+                      name: name,
+                      lat: element.lat,
+                      lng: element.lon,
+                      distance: distance,
+                      address: address,
+                      operator: element.tags.operator,
+                      recycling_type: element.tags.recycling_type,
+                      materials: materials,
+                      amenity: element.tags.amenity,
+                      type: 'recycling'
+                    });
+                  }
+                });
+
+                // Sort by distance
+                recyclingCentersFound.sort((a, b) => a.distance - b.distance);
+
+                // Add markers to the map
+                addRecyclingMarkers(recyclingCentersFound);
+
+                console.log(`Found ${recyclingCentersFound.length} recycling points`);
+              }
+
+              // Display combined results (even if we only have recycling centers)
+              displayCombinedResults();
+            })
+            .catch(error => {
+              console.error("Error fetching recycling centers:", error);
+              // Still display combined results with whatever we have
+              displayCombinedResults();
+            });
+  }
+
+  // Add food bank markers to the map
+  function addFoodBankMarkers(locations) {
+    locations.forEach(location => {
+      const marker = L.marker([location.lat, location.lng], {
+        icon: L.divIcon({
+          className: 'food-bank-marker',
+          html: '<i class="fas fa-shopping-basket" style="color: #fb923c; font-size: 24px;"></i>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        })
+      });
+
+      // Create popup content
+      const popupContent = `
+                    <div class="popup-content">
+                        <h3>${location.name}</h3>
+                        <p><strong>Distance:</strong> ${location.distance.toFixed(1)} km</p>
+                        <p><strong>Address:</strong> ${location.address}</p>
+                        ${location.website ? `<p><strong>Website:</strong> <a href="${location.website}" target="_blank">${location.website}</a></p>` : ''}
+                        ${location.phone ? `<p><strong>Phone:</strong> ${location.phone}</p>` : ''}
+                        ${location.email ? `<p><strong>Email:</strong> ${location.email}</p>` : ''}
+                        ${location.items_needed && location.items_needed.length > 0 ?
+              `<p><strong>Items Needed:</strong> ${location.items_needed.join(', ')}</p>` : ''}
+                    </div>
+                `;
+
+      marker.bindPopup(popupContent);
+      markerCluster.addLayer(marker);
+      markers.push(marker);
+    });
+  }
+
+  // Add recycling center markers to the map
+  function addRecyclingMarkers(locations) {
+    locations.forEach(location => {
+      const marker = L.marker([location.lat, location.lng], {
+        icon: L.divIcon({
+          className: 'recycling-marker',
+          html: '<i class="fas fa-recycle" style="color: #22c55e; font-size: 24px;"></i>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        })
+      });
+
+      // Create popup content
+      const popupContent = `
+                    <div class="popup-content">
+                        <h3>${location.name}</h3>
+                        <p><strong>Distance:</strong> ${location.distance.toFixed(1)} km</p>
+                        <p><strong>Address:</strong> ${location.address}</p>
+                        ${location.operator ? `<p><strong>Operator:</strong> ${location.operator}</p>` : ''}
+                        ${location.recycling_type ? `<p><strong>Type:</strong> ${location.recycling_type}</p>` : ''}
+                        ${location.materials && location.materials.length > 0 ?
+              `<p><strong>Materials:</strong> ${location.materials.join(', ')}</p>` : ''}
+                    </div>
+                `;
+
+      marker.bindPopup(popupContent);
+      markerCluster.addLayer(marker);
+      markers.push(marker);
+    });
+  }
+
+  // Display combined results from both food banks and recycling centers
+  function displayCombinedResults() {
+    const resultsContainer = document.getElementById('results');
+
+    // Get all locations
+    const allLocations = [...foodBankLocationsFound, ...recyclingCentersFound].sort((a, b) => a.distance - b.distance);
+
+    // If this is being called during initial load and not as part of a search
+    if (allLocations.length === 0 && !resultsContainer.querySelector('.no-results')) {
+      // Don't show an error, just show the default message
+      resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <p>Enter a location above to find food banks and recycling centers near you.</p>
+                    </div>`;
+      return;
+    }
+
+    // If this is being called as part of a search
+    resultsContainer.innerHTML = '';
+
+    // Check if we have results
+    if (allLocations.length === 0) {
+      resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <p>No locations found nearby. Try increasing your search radius or searching in a different location.</p>
+                    </div>`;
+      return;
+    }
+
+    // Create results header
+    const resultsHeader = document.createElement('h2');
+    resultsHeader.innerHTML = `<i class="fas fa-list-ul"></i> ${allLocations.length} locations found`;
+    resultsContainer.appendChild(resultsHeader);
+
+    // Setup pagination
+    const resultsPerPage = 20;
+    const totalPages = Math.ceil(allLocations.length / resultsPerPage);
+    let currentPage = 1;
+
+    // Function to display a specific page
+    function displayPage(page) {
+      // Clear previous results
+      const existingResults = resultsContainer.querySelectorAll('.location-item');
+      existingResults.forEach(item => item.remove());
+
+      // Calculate start and end indices
+      const startIndex = (page - 1) * resultsPerPage;
+      const endIndex = Math.min(startIndex + resultsPerPage, allLocations.length);
+
+      // Display locations for current page
+      for (let i = startIndex; i < endIndex; i++) {
+        const location = allLocations[i];
+        const locationElement = document.createElement('div');
+        locationElement.className = 'location-item';
+
+        if (location.type === 'food_bank') {
+          locationElement.innerHTML = `
+                            <h3><i class="fas fa-shopping-basket food-bank-icon"></i> ${location.name} <span class="location-type type-food-bank">Food Bank</span></h3>
+                            <p class="location-distance"><i class="fas fa-location-arrow"></i> ${location.distance.toFixed(1)} km away</p>
+                            <p class="location-address"><i class="fas fa-map-marker-alt"></i> ${location.address || 'Address not available'}</p>
+                            ${location.phone ? `<p><i class="fas fa-phone"></i> ${location.phone}</p>` : ''}
+                            ${location.email ? `<p><i class="fas fa-envelope"></i> ${location.email}</p>` : ''}
+                            ${location.website ? `<p><i class="fas fa-globe"></i> <a href="${location.website}" target="_blank">Website</a></p>` : ''}
+                        `;
+        } else {
+          locationElement.innerHTML = `
+                            <h3><i class="fas fa-recycle recycling-icon"></i> ${location.name} <span class="location-type type-recycling">Recycling</span></h3>
+                            <p class="location-distance"><i class="fas fa-location-arrow"></i> ${location.distance.toFixed(1)} km away</p>
+                            <p class="location-address"><i class="fas fa-map-marker-alt"></i> ${location.address || 'Address not available'}</p>
+                            ${location.amenity ? `<p><i class="fas fa-info-circle"></i> ${location.amenity}</p>` : ''}
+                            ${location.operator ? `<p><i class="fas fa-user"></i> Operated by: ${location.operator}</p>` : ''}
+                        `;
+        }
+
+        resultsContainer.appendChild(locationElement);
+      }
+
+      // Update current page
+      currentPage = page;
+
+      // Update pagination display
+      if (paginationContainer) {
+        document.querySelector('.current-page').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.querySelector('.prev-page').disabled = currentPage === 1;
+        document.querySelector('.next-page').disabled = currentPage === totalPages;
+      }
+    }
+
+    // Create pagination controls
+    const paginationContainer = document.createElement('div');
+    paginationContainer.className = 'pagination';
+
+    if (totalPages > 1) {
+      paginationContainer.innerHTML = `
+                    <button class="prev-page"><i class="fas fa-chevron-left"></i></button>
+                    <span class="current-page">Page 1 of ${totalPages}</span>
+                    <button class="next-page"><i class="fas fa-chevron-right"></i></button>
+                `;
+
+      // Add event listeners for pagination
+      paginationContainer.querySelector('.prev-page').addEventListener('click', () => {
+        if (currentPage > 1) {
+          displayPage(currentPage - 1);
+        }
+      });
+
+      paginationContainer.querySelector('.next-page').addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          displayPage(currentPage + 1);
+        }
+      });
+
+      resultsContainer.appendChild(paginationContainer);
+    }
+
+    // Display first page
+    displayPage(1);
+  }
+</script>
+
+<!-- Initialize kaleidoscope effect -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof TlgKaleidoscope !== 'undefined') {
+      // Initialize kaleidoscope after the page has loaded
+      TlgKaleidoscope.init();
+
+      // Add some interaction - change kaleidoscope properties on scroll
+      window.addEventListener('scroll', function() {
+        const scrollPosition = window.scrollY;
+        const kaleidoscopeElem = document.querySelector('[tlg-kaleidoscope-canvas]');
+
+        if (kaleidoscopeElem && scrollPosition < 500) {
+          // Adjust opacity based on scroll position
+          const opacity = Math.max(0, 0.7 - (scrollPosition / 500));
+          kaleidoscopeElem.style.opacity = opacity;
+
+          // Also adjust rotation speed
+          const motionValue = Math.max(0.2, 1.2 - (scrollPosition / 500));
+          kaleidoscopeElem.setAttribute('tlg-kaleidoscope-motion', motionValue);
+        }
+      });
+    } else {
+      console.warn('TlgKaleidoscope not loaded');
+    }
+  });
 </script>
 </body>
 </html>
